@@ -475,24 +475,42 @@ void OsContextSpecific::SetSliceCount(uint32_t *pSliceCount)
         }
     }
 
-    struct drm_i915_gem_context_param_sseu sseu = { .flags = I915_EXEC_RENDER };
-    sseu.value = m_sseu;
-    sliceMask = mos_get_slice_mask(sliceCount);
+    struct drm_i915_gem_context_param_sseu sseu;
+    MOS_ZeroMemory(&sseu, sizeof(sseu));
+    sseu.engine_class = 0;
+    sseu.instance = 0;
 
-    if (sliceMask != sseu.packed.slice_mask)
+    if (sliceCount != mos_hweight8(m_sseu.slice_mask))
     {
         if (mos_get_context_param_sseu(m_intelContext, &sseu))
         {
             MOS_OS_ASSERTMESSAGE("Failed to get context parameter.");
             return ;
         };
-        sseu.packed.slice_mask = sliceMask;
+
+        unsigned int device_slice_mask;
+        if (mos_get_slice_mask(m_fd, &device_slice_mask))
+        {
+            MOS_OS_ASSERTMESSAGE("Failed to get device slice mask.");
+            return ;
+        }
+
+        if (mos_hweight8(device_slice_mask) > sliceCount)
+        {
+            sseu.slice_mask = mos_switch_off_n_bits((uint8_t)device_slice_mask,
+                                 mos_hweight8(device_slice_mask) - sliceCount);
+        }
+        else
+        {
+            sseu.slice_mask = device_slice_mask;
+        }
+
         if (mos_set_context_param_sseu(m_intelContext, sseu))
         {
             MOS_OS_ASSERTMESSAGE("Failed to set context parameter.");
             return ;
         }
-        m_sseu = sseu.value;
+        m_sseu = sseu;
     }
 
     *pSliceCount = sliceCount;
@@ -589,6 +607,15 @@ MOS_STATUS OsContextSpecific::Init(PMOS_CONTEXT pOsDriverContext)
             MOS_OS_ASSERTMESSAGE("Failed to create drm intel context");
             return MOS_STATUS_UNKNOWN;
         }
+
+        MOS_ZeroMemory(&m_sseu, sizeof(m_sseu));
+        m_sseu.engine_class = 0;
+        m_sseu.instance = 0;
+        if (mos_get_context_param_sseu(m_intelContext, &m_sseu))
+        {
+            MOS_OS_ASSERTMESSAGE("Failed to get context parameter sseu.");
+            return MOS_STATUS_UNKNOWN;
+        };
     #else
         m_intelContext                   = nullptr;
     #endif

@@ -4111,6 +4111,40 @@ MOS_STATUS Mos_Specific_CreateGpuContext(
             pOsContextSpecific->SetGpuContextHandle(mosGpuCxt, gpuContextSpecific->GetGpuContextHandle());
         }
 
+        MOS_OS_CHK_NULL_RETURN(createOption);
+        if (GpuNode == MOS_GPU_NODE_3D && createOption->SSEUValue != 0)
+        {
+            unsigned int subslice_mask;
+            struct drm_i915_gem_context_param_sseu sseu;
+            MOS_ZeroMemory(&sseu, sizeof(sseu));
+            sseu.engine_class = I915_ENGINE_CLASS_RENDER;
+            sseu.instance = 0;
+
+            if (mos_get_context_param_sseu(pOsInterface->pOsContext->intel_context, &sseu))
+            {
+                MOS_OS_ASSERTMESSAGE("Failed to get sseu configuration.");
+                return MOS_STATUS_UNKNOWN;
+            };
+
+            if (mos_get_subslice_mask(pOsInterface->pOsContext->fd, &subslice_mask))
+            {
+                MOS_OS_ASSERTMESSAGE("Failed to get subslice mask.");
+                return MOS_STATUS_UNKNOWN;
+            }
+
+            if (mos_hweight8(sseu.subslice_mask) > createOption->packed.SubSliceCount)
+            {
+                sseu.subslice_mask = mos_switch_off_n_bits(subslice_mask,
+                        mos_hweight8((uint8_t)subslice_mask)-createOption->packed.SubSliceCount);
+            }
+
+            if (mos_set_context_param_sseu(pOsInterface->pOsContext->intel_context, sseu))
+            {
+                MOS_OS_ASSERTMESSAGE("Failed to set sseu configuration.");
+                return MOS_STATUS_UNKNOWN;
+            };
+        }
+
         return MOS_STATUS_SUCCESS;
     }
 

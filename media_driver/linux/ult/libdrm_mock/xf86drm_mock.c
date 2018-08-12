@@ -341,7 +341,7 @@ mosdrmIoctl(int fd, unsigned long request, void *arg)
         case DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM:
         case DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM:
         {
-            ret = -1;
+            ret = 0;
         }
         break;
         default:

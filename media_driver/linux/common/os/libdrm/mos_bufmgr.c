@@ -4527,23 +4527,42 @@ mos_get_reset_stats(struct mos_linux_context *ctx,
     return ret;
 }
 
-int mos_get_slice_mask(uint32_t slice_count)
+unsigned int mos_hweight8(uint8_t w)
 {
-    uint32_t bitflag = 1;
-    uint32_t bitmask = 0;
-    uint32_t count = 0;
+    uint32_t i, weight = 0;
 
-    while (count < slice_count)
+    for (i=0; i<8; i++)
     {
-        bitmask = bitflag;
-        bitflag = bitmask | (bitflag << 1);
-        count++;
+        weight += !!((w) & (1UL << i));
     }
-
-    return bitmask;
+    return weight;
 }
 
-#if defined(MEDIA_EXT)
+uint8_t mos_switch_off_n_bits(uint8_t in_mask, int n)
+{
+    int i,count;
+    uint8_t bi,out_mask;
+
+    assert (n>0 && n<=8);
+
+    out_mask = in_mask;
+    count = n;
+    for(i=0; i<8; i++)
+    {
+        bi = 1UL<<i;
+        if (bi & in_mask)
+        {
+            out_mask &= ~bi;
+            count--;
+        }
+        if (count==0)
+        {
+            break;
+        }
+    }
+    return out_mask;
+}
+
 int
 mos_get_context_param_sseu(struct mos_linux_context *ctx,
                 struct drm_i915_gem_context_param_sseu *sseu)
@@ -4560,6 +4579,7 @@ mos_get_context_param_sseu(struct mos_linux_context *ctx,
     context_param.ctx_id = ctx->ctx_id;
     context_param.param = I915_CONTEXT_PARAM_SSEU;
     context_param.value = (uint64_t) sseu;
+    context_param.size = sizeof(struct drm_i915_gem_context_param_sseu);
 
     ret = drmIoctl(bufmgr_gem->fd,
             DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM,
@@ -4584,6 +4604,7 @@ mos_set_context_param_sseu(struct mos_linux_context *ctx,
     context_param.ctx_id = ctx->ctx_id;
     context_param.param = I915_CONTEXT_PARAM_SSEU;
     context_param.value = (uint64_t) &sseu;
+    context_param.size = sizeof(struct drm_i915_gem_context_param_sseu);
 
     ret = drmIoctl(bufmgr_gem->fd,
                DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM,
@@ -4591,7 +4612,6 @@ mos_set_context_param_sseu(struct mos_linux_context *ctx,
 
     return ret;
 }
-#endif
 
 int
 mos_get_context_param(struct mos_linux_context *ctx,
@@ -4673,6 +4693,38 @@ mos_get_subslice_total(int fd, unsigned int *subslice_total)
     memclear(gp);
     gp.value = (int*)subslice_total;
     gp.param = I915_PARAM_SUBSLICE_TOTAL;
+    ret = drmIoctl(fd, DRM_IOCTL_I915_GETPARAM, &gp);
+    if (ret)
+        return -errno;
+
+    return 0;
+}
+
+int
+mos_get_subslice_mask(int fd, unsigned int *subslice_mask)
+{
+    drm_i915_getparam_t gp;
+    int ret;
+
+    memclear(gp);
+    gp.value = (int*)subslice_mask;
+    gp.param = I915_PARAM_SUBSLICE_MASK;
+    ret = drmIoctl(fd, DRM_IOCTL_I915_GETPARAM, &gp);
+    if (ret)
+        return -errno;
+
+    return 0;
+}
+
+int
+mos_get_slice_mask(int fd, unsigned int *slice_mask)
+{
+    drm_i915_getparam_t gp;
+    int ret;
+
+    memclear(gp);
+    gp.value = (int*)slice_mask;
+    gp.param = I915_PARAM_SLICE_MASK;
     ret = drmIoctl(fd, DRM_IOCTL_I915_GETPARAM, &gp);
     if (ret)
         return -errno;

@@ -335,7 +335,7 @@ private:
     //!
     //! \brief  sseu for current context
     //!
-    uint64_t            m_sseu = 0;
+    struct drm_i915_gem_context_param_sseu  m_sseu;
     //!
     //! \brief  Semophore ID for ruling SSEU configration
     //!
