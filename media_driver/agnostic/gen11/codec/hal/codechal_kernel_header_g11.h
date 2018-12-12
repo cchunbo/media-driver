@@ -29,6 +29,7 @@
 
 #include "codechal_encoder_base.h"
 
+#ifndef _FULL_OPEN_SOURCE
 struct HmeDsScoreboardKernelHeaderG11 {
     int nKernelCount;
     union
@@ -71,6 +72,38 @@ enum HmeDsScoreboardKernelIdxG11
     CODECHAL_DYNAMIC_SCALING_G11_KRNIDX,
     CODECHAL_HmeDsSwScoreboardInit_NUM_KRN_G11
 };
+#else
+struct HmeDsScoreboardKernelHeaderG11 {
+    int nKernelCount;
+    union
+    {
+        struct
+        {
+            CODECHAL_KERNEL_HEADER hmeDownscaleGenX0;
+            CODECHAL_KERNEL_HEADER hmeDownscaleGenX1;
+            CODECHAL_KERNEL_HEADER hmeDownscaleGenX2;
+            CODECHAL_KERNEL_HEADER hmeDownscaleGenX3;
+            CODECHAL_KERNEL_HEADER hmeP;
+            CODECHAL_KERNEL_HEADER hmeB;
+            CODECHAL_KERNEL_HEADER hmeVdenc;
+            CODECHAL_KERNEL_HEADER dsConvertGenX0;
+        };
+    };
+};
+
+enum HmeDsScoreboardKernelIdxG11
+{
+    // HME + Scoreboard Kernel Surface
+    CODECHAL_HME_DOWNSCALE_GENX_0_KRNIDX = 0,
+    CODECHAL_HME_DOWNSCALE_GENX_1_KRNIDX,
+    CODECHAL_HME_DOWNSCALE_GENX_2_KRNIDX,
+    CODECHAL_HME_DOWNSCALE_GENX_3_KRNIDX,
+    CODECHAL_HME_GENX_0_KRNIDX,
+    CODECHAL_HME_GENX_1_KRNIDX,
+    CODECHAL_HME_GENX_2_KRNIDX,
+    CODECHAL_DS_CONVERT_GENX_0_KRNIDX,
+};
+#endif
 
 //!
 //! \brief    Get common kernel header and size
@@ -129,14 +162,15 @@ static MOS_STATUS GetCommonKernelHeaderAndSizeG11(
     case VDENC_ME:
         currKrnHeader = &kernelHeaderTable->hmeVdenc;
         break;
+    case ENC_SCALING_CONVERSION:
+        currKrnHeader = &kernelHeaderTable->dsConvertGenX0;
+        break;
+#ifndef _FULL_OPEN_SOURCE
     case VDENC_STREAMIN_HEVC:
         currKrnHeader = &kernelHeaderTable->hmeHevcVdenc;
         break;
     case ENC_SFD:
         currKrnHeader = &kernelHeaderTable->hmeDetectionGenX0;
-        break;
-    case ENC_SCALING_CONVERSION:
-        currKrnHeader = &kernelHeaderTable->dsConvertGenX0;
         break;
     case ENC_SCOREBOARD:
         currKrnHeader = &kernelHeaderTable->initSwScoreboard;
@@ -150,6 +184,7 @@ static MOS_STATUS GetCommonKernelHeaderAndSizeG11(
     case ENC_WP:
         currKrnHeader = &kernelHeaderTable->weightedPrediction;
         break;
+#endif
     default:
         CODECHAL_ENCODE_ASSERTMESSAGE("Unsupported ENC mode requested");
         eStatus = MOS_STATUS_INVALID_PARAMETER;
@@ -160,7 +195,11 @@ static MOS_STATUS GetCommonKernelHeaderAndSizeG11(
     *((PCODECHAL_KERNEL_HEADER)krnHeader) = *currKrnHeader;
 
     PCODECHAL_KERNEL_HEADER invalidEntry;
+#ifdef _FULL_OPEN_SOURCE
     invalidEntry = &(kernelHeaderTable->weightedPrediction) + 1;
+#else
+    invalidEntry = &(kernelHeaderTable->dsConvertGenX0) + 1;
+#endif
     PCODECHAL_KERNEL_HEADER nextKrnHeader;
     nextKrnHeader = (currKrnHeader + 1);
     uint32_t nextKrnOffset;

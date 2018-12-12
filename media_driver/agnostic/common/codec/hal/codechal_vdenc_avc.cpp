@@ -1176,12 +1176,13 @@ MOS_STATUS CodechalVdencAvcState::Initialize(CodechalSetting * settings)
 
     CODECHAL_ENCODE_CHK_STATUS_RETURN(CodechalEncodeAvcBase::Initialize(settings));
 
-#ifndef _FULL_OPEN_SOURCE
-    // for AVC: the Ds+Copy kernel is by default used to do CSC and copy non-aligned surface
-    m_cscDsState->EnableCopy();
-    m_cscDsState->EnableColor();
-    m_cscDsState->EnableSfc();
-#endif
+    if (m_openCommonKernel)
+    {
+        // for AVC: the Ds+Copy kernel is by default used to do CSC and copy non-aligned surface
+        m_cscDsState->EnableCopy();
+        m_cscDsState->EnableColor();
+        m_cscDsState->EnableSfc();
+    }
 
     MOS_USER_FEATURE_VALUE_DATA userFeatureData;
 #if (_DEBUG || _RELEASE_INTERNAL)
@@ -1232,6 +1233,10 @@ MOS_STATUS CodechalVdencAvcState::Initialize(CodechalSetting * settings)
             __MEDIA_USER_FEATURE_VALUE_STATIC_FRAME_DETECTION_ENABLE_ID,
             &userFeatureData);
         m_staticFrameDetectionEnable = (userFeatureData.i32Data) ? true : false;
+
+#ifdef _FULL_OPEN_SOURCE
+        m_staticFrameDetectionEnable = false;
+#endif
 
         MOS_ZeroMemory(&userFeatureData, sizeof(userFeatureData));
         MOS_UserFeature_ReadValue_ID(
@@ -1331,9 +1336,8 @@ MOS_STATUS CodechalVdencAvcState::Initialize(CodechalSetting * settings)
 
     CODECHAL_ENCODE_CHK_STATUS_RETURN(Initialize());
 
-#ifndef _FULL_OPEN_SOURCE
     // common function for all codecs needed
-    if (CodecHalUsesRenderEngine(m_codecFunction, m_standard))
+    if (m_openCommonKernel&& CodecHalUsesRenderEngine(m_codecFunction, m_standard))
     {
         CODECHAL_ENCODE_CHK_STATUS_RETURN(InitKernelStateMe());
 
@@ -1364,7 +1368,6 @@ MOS_STATUS CodechalVdencAvcState::Initialize(CodechalSetting * settings)
             m_maxBtCount = MOS_MAX(encOneBtCount, encTwoBtCount);
         }
     }
-#endif
 
     // Picture Level Commands
     m_hwInterface->GetMfxStateCommandsDataSize(
@@ -3295,7 +3298,11 @@ MOS_STATUS CodechalVdencAvcState::ExecuteKernelFunctions()
 
     CODECHAL_ENCODE_FUNCTION_ENTER;
 
-#ifndef _FULL_OPEN_SOURCE
+    if (!m_openCommonKernel)
+    {
+        return eStatus;
+    }
+    
     CODECHAL_ENCODE_CHK_NULL_RETURN(m_cscDsState);
 
     // SHME and CSC require calling EU kernels
@@ -3400,7 +3407,6 @@ MOS_STATUS CodechalVdencAvcState::ExecuteKernelFunctions()
         }
 
     );
-#endif
 
     return eStatus;
 }
@@ -4033,9 +4039,9 @@ MOS_STATUS CodechalVdencAvcState::ExecuteSliceLevel()
             &flushDwParams));
     }
 
-#ifndef _FULL_OPEN_SOURCE
+
     // On-demand sync for VDEnc StreamIn surface and CSC surface
-    if (m_currPass == 0)
+    if (m_openCommonKernel&& m_currPass == 0)
     {
         if (m_cscDsState->RequireCsc())
         {
@@ -4052,7 +4058,6 @@ MOS_STATUS CodechalVdencAvcState::ExecuteSliceLevel()
             m_osInterface->pfnSetResourceSyncTag(m_osInterface, &syncParams);
         }
     }
-#endif
 
     CODECHAL_ENCODE_CHK_STATUS_RETURN(ReadMfcStatus(&cmdBuffer));
 

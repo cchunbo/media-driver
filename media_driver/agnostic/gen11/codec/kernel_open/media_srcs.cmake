@@ -18,10 +18,25 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 
-media_include_subdirectory(hal)
-if("${Full_Open_Source_Support}" STREQUAL "yes")
-  media_include_subdirectory(kernel_open)
-else()
-  media_include_subdirectory(kernel)
-endif()
-media_include_subdirectory(share)
+set(TMP_SOURCES_
+    ${CMAKE_CURRENT_LIST_DIR}/igcodeckrn_g11.c
+)
+
+set(TMP_HEADERS_
+    ${CMAKE_CURRENT_LIST_DIR}/igcodeckrn_g11.h
+)
+
+set(SOURCES_
+    ${SOURCES_}
+    ${TMP_SOURCES_}
+)
+
+set(HEADERS_
+    ${HEADERS_}
+    ${TMP_HEADERS_}
+)
+
+source_group("Kernel\\CodecKernel" FILES ${TMP_SOURCES_} ${TMP_HEADERS_})
+
+
+media_add_curr_to_include_path()

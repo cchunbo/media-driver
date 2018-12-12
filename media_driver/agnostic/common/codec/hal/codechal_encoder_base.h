@@ -1662,6 +1662,8 @@ public:
     MediaPerfProfiler               *m_perfProfiler = nullptr;  //!< Performance data profiler
     PMOS_GPUCTX_CREATOPTIONS        m_gpuCtxCreatOpt = nullptr; //!< Used for creating GPU context
 
+    bool m_openCommonKernel;
+
 #if (_DEBUG || _RELEASE_INTERNAL)
     bool m_mmcUserFeatureUpdated;  //!< indicate if the user feature is updated with MMC state
 #endif

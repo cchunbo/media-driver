@@ -210,7 +210,15 @@ MOS_STATUS CodecHalGetKernelBinaryAndSize(
     uint8_t**  kernelBinary,
     uint32_t*  size)
 {
-#ifndef _FULL_OPEN_SOURCE
+#ifdef _FULL_OPEN_SOURCE
+    if (kernelBase == nullptr)
+    {
+        *size = 0;
+        *kernelBinary = nullptr;
+        return MOS_STATUS_SUCCESS;
+    }
+#endif
+    
     CODECHAL_PUBLIC_CHK_NULL_RETURN(kernelBase);
     CODECHAL_PUBLIC_CHK_NULL_RETURN(kernelBinary);
     CODECHAL_PUBLIC_CHK_NULL_RETURN(size);
@@ -225,10 +233,6 @@ MOS_STATUS CodecHalGetKernelBinaryAndSize(
 
     *size = kernelOffsetTable[kernelUID + 1] - kernelOffsetTable[kernelUID];
     *kernelBinary = (*size) > 0 ? binaryBase + kernelOffsetTable[kernelUID] : nullptr;
-#else
-    *size = 0;
-    *kernelBinary = nullptr;
-#endif
 
     return MOS_STATUS_SUCCESS;
 }

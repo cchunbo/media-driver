@@ -674,11 +674,7 @@ CodechalVdencAvcStateG11::CodechalVdencAvcStateG11(
 
     CODECHAL_ENCODE_ASSERT(m_osInterface);
 
-#ifndef _FULL_OPEN_SOURCE
     m_kernelBase = (uint8_t*)IGCODECKRN_G11;
-#else
-    m_kernelBase = nullptr;
-#endif
     m_cmKernelEnable = true;
     m_mbStatsSupported = true; //Starting from GEN9
 
@@ -692,6 +688,7 @@ CodechalVdencAvcStateG11::CodechalVdencAvcStateG11(
     Mos_SetVirtualEngineSupported(m_osInterface, true);
 
     m_vdboxOneDefaultUsed = true;
+    m_openCommonKernel = true;
 
     Mos_CheckVirtualEngineSupported(m_osInterface, false, true);
 
@@ -1075,7 +1072,6 @@ MOS_STATUS CodechalVdencAvcStateG11::ExecuteSliceLevel()
             &flushDwParams));
     }
 
-#ifndef _FULL_OPEN_SOURCE
     // On-demand sync for VDEnc StreamIn surface and CSC surface
     if (m_currPass == 0)
     {
@@ -1094,7 +1090,6 @@ MOS_STATUS CodechalVdencAvcStateG11::ExecuteSliceLevel()
             m_osInterface->pfnSetResourceSyncTag(m_osInterface, &syncParams);
         }
     }
-#endif
 
     CODECHAL_ENCODE_CHK_STATUS_RETURN(ReadMfcStatus(&cmdBuffer));
 
