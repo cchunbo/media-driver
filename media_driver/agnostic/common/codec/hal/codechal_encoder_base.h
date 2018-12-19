@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, Intel Corporation
+* Copyright (c) 2017-2018, Intel Corporation
 *
 * Permission is hereby granted, free of charge, to any person obtaining a
 * copy of this software and associated documentation files (the "Software"),
@@ -1681,6 +1681,8 @@ public:
 #endif
 
     bool m_colorbitSupported;
+
+    bool m_enableHmeKernel = false; //!< Used to indicate whether hme kernel is enabled
 
 #if USE_CODECHAL_DEBUG_TOOL
     CodechalDebugEncodePar          *m_encodeParState = nullptr;         //!< Encode Par state
