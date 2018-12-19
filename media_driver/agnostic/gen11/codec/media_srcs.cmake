@@ -21,5 +21,7 @@
 media_include_subdirectory(hal)
 if(ENABLE_KERNELS AND NOT FREE_KERNELS)
     media_include_subdirectory(kernel)
+elseif(FREE_KERNELS)
+    media_include_subdirectory(kernel_free)
 endif()
 media_include_subdirectory(share)

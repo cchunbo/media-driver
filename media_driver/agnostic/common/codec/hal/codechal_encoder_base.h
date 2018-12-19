@@ -1682,6 +1682,8 @@ public:
 
     bool m_colorbitSupported;
 
+    bool m_freeKernels; //!< Used to indicate whether has free kernels, it will be always true if ENABLE_KERNELS defined
+
 #if USE_CODECHAL_DEBUG_TOOL
     CodechalDebugEncodePar          *m_encodeParState = nullptr;         //!< Encode Par state
 #endif
