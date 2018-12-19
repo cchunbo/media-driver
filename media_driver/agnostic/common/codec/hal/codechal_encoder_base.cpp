@@ -1209,26 +1209,30 @@ MOS_STATUS CodechalEncoderState::CheckResChangeAndCsc()
     {
         ResizeOnResChange();
     }
-#ifndef _FULL_OPEN_SOURCE
-    // check recon surface's alignment meet HW requirement
-    CODECHAL_ENCODE_CHK_STATUS_RETURN(m_cscDsState->CheckReconSurfaceAlignment(&m_reconSurface));
 
-    if (!m_cscDsState->IsEnabled() ||
-        CodecHal_PictureIsField(m_currOriginalPic) ||
-        CodecHal_PictureIsInterlacedFrame(m_currOriginalPic))
+    if (m_freeKernels && m_cscDsState)
     {
+      // check recon surface's alignment meet HW requirement
+      CODECHAL_ENCODE_CHK_STATUS_RETURN(
+          m_cscDsState->CheckReconSurfaceAlignment(&m_reconSurface));
+
+      if (!m_cscDsState->IsEnabled() ||
+          CodecHal_PictureIsField(m_currOriginalPic) ||
+          CodecHal_PictureIsInterlacedFrame(m_currOriginalPic))
+      {
         // CSC disabled for interlaced frame
         m_cscDsState->ResetCscFlag();
 
         // check raw surface's alignment meet HW requirement
         CODECHAL_ENCODE_CHK_STATUS_RETURN(m_cscDsState->CheckRawSurfaceAlignment(m_rawSurfaceToEnc));
-    }
-    else
-    {
+      }
+      else
+      {
         // check if we need to do CSC or copy non-aligned surface
         CODECHAL_ENCODE_CHK_STATUS_RETURN(m_cscDsState->CheckCondition());
+      }
     }
-#endif
+
     return MOS_STATUS_SUCCESS;
 }
 
@@ -2073,14 +2077,14 @@ void CodechalEncoderState::FreeResources()
             }
         }
     }
-#ifndef _FULL_OPEN_SOURCE
+
     // release CSC Downscaling kernel resources
     if (m_cscDsState)
     {
         MOS_Delete(m_cscDsState);
         m_cscDsState = nullptr;
     }
-#endif
+
     if (m_encoderGenState)
     {
         MOS_Delete(m_encoderGenState);
@@ -4018,10 +4022,12 @@ MOS_STATUS CodechalEncoderState::UserFeatureKeyReport()
     }
 
 #if (_DEBUG || _RELEASE_INTERNAL)
-#ifndef _FULL_OPEN_SOURCE
-    // report encode CSC method
-    if (m_cscDsState)
+    if (m_freeKernels)
     {
+
+      // report encode CSC method
+      if (m_cscDsState)
+      {
         userFeatureWriteData = __NULL_USER_FEATURE_VALUE_WRITE_DATA__;
         userFeatureWriteData.Value.i32Data = m_cscDsState->CscMethod();
         userFeatureWriteData.ValueID = __MEDIA_USER_FEATURE_VALUE_ENCODE_CSC_METHOD_ID;
@@ -4036,15 +4042,14 @@ MOS_STATUS CodechalEncoderState::UserFeatureKeyReport()
         userFeatureWriteData.Value.u32Data = (uint32_t)m_rawSurface.Format;
         userFeatureWriteData.ValueID = __MEDIA_USER_FEATURE_VALUE_ENCODE_RAW_FORMAT_ID;
         MOS_UserFeature_WriteValues_ID(nullptr, &userFeatureWriteData, 1);
+      }
+
+      // Encode compute context Reporting
+      userFeatureWriteData = __NULL_USER_FEATURE_VALUE_WRITE_DATA__;
+      userFeatureWriteData.Value.i32Data = m_computeContextEnabled;
+      userFeatureWriteData.ValueID = __MEDIA_USER_FEATURE_VALUE_ENCODE_ENABLE_COMPUTE_CONTEXT_ID;
+      MOS_UserFeature_WriteValues_ID(nullptr, &userFeatureWriteData, 1);
     }
-
-    // Encode compute context Reporting
-    userFeatureWriteData = __NULL_USER_FEATURE_VALUE_WRITE_DATA__;
-    userFeatureWriteData.Value.i32Data = m_computeContextEnabled;
-    userFeatureWriteData.ValueID = __MEDIA_USER_FEATURE_VALUE_ENCODE_ENABLE_COMPUTE_CONTEXT_ID;
-    MOS_UserFeature_WriteValues_ID(nullptr, &userFeatureWriteData, 1);
-
-#endif
 #endif
 
     return eStatus;
@@ -4567,6 +4572,12 @@ CodechalEncoderState::CodechalEncoderState(
     MOS_ZeroMemory(&m_vdencMeKernelBindingTable, sizeof(m_vdencMeKernelBindingTable));
 
     MOS_ZeroMemory(&m_vdencStreaminKernelBindingTable, sizeof(m_vdencStreaminKernelBindingTable));
+
+#if defined(ENABLE_KERNELS)
+    m_freeKernels = true;
+#else
+    m_freeKernels = false;
+#endif
 }
 
 CodechalEncoderState::~CodechalEncoderState()
