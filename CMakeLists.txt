@@ -65,6 +65,21 @@ if (BUILD_KERNELS)
     if (NOT IGA)
         message(FATAL_ERROR "Failed to find IGA")
     endif()
+    
+    find_program(CMC cmc)
+    if (NOT CMC)
+        message(FATAL_ERROR "Failed to find CMC")
+    endif()
+
+    find_program(GENXIR GenX_IR)
+    if (NOT CMC)
+            message(FATAL_ERROR "Failed to find GENXIR")
+    endif()
+
+    find_program(PYTHON python)
+    if (NOT PYTHON)
+        message(FATAL_ERROR "Failed to find PYTHON")
+    endif()
 
     add_subdirectory(Tools/MediaDriverTools)
 endif()

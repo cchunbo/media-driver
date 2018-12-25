@@ -39,6 +39,9 @@ static const char *SOURCE_EXT       = ".c";
 static const char *PARAM_I          = "-i";
 static const char *PARAM_O          = "-o";
 static const char *PARAM_V          = "-v";
+static const char *PARAM_INDEX      = "-index";
+static const char *PARAM_TOTAL      = "-t";
+
 #ifdef LINUX_
 static const char *FILE_SEP         = "/";
 #else
@@ -172,6 +175,105 @@ finish:
 }
 
 //-----------------------------------------------------------------------------
+// Writes Partial Source file
+//-----------------------------------------------------------------------------
+int32_t writePartialSourceFile(
+    const uint32_t      *pBuffer,
+    uint32_t            uiSize,
+    const std::string   &sFileName,
+    const std::string   &sVarName,
+    const uint32_t      &index,
+    const uint32_t      &total)
+{
+    int32_t             iStatus = -1;
+    std::ofstream       oOutStream;
+    std::stringstream   oSs;
+    std::string         sSizeName;
+    std::string         sPlatformName;
+    const uint32_t uiHexLen = 11;
+    char sHex[uiHexLen];
+    uint32_t offset_size = 0;
+    uint32_t final_size = (uiSize + total) * sizeof(uint32_t);
+    uint32_t stub = 0;
+
+    oOutStream.open(sFileName.c_str(), std::ios::out | std::ios::trunc );
+    if (!oOutStream.is_open())
+    {
+        printf("Error: Unable to open file '%s' for writing\n", sFileName.c_str());
+        goto finish;
+    }
+
+    sSizeName = "extern const unsigned int " + sVarName + "_SIZE";
+
+    sPlatformName = sVarName;
+    sPlatformName.erase(0, sPlatformName.find_first_of('G',3) + 1);
+
+    oSs << COPYRIGHT << std::endl;
+    oSs << "#ifdef IGFX_GEN" << sPlatformName.c_str() << "_SUPPORTED" << std::endl;
+    oSs << sSizeName.c_str() << " = " << final_size << ";" << std::endl
+        << "extern const unsigned int " << sVarName.c_str() << "[] ="
+        << std::endl << "{";
+
+    for(stub = 0; stub < total; stub++)
+    {
+        if (stub % 8 == 0)
+        {
+            oSs << std::endl << "    ";
+        }
+
+        if( stub == index + 1)
+        {
+            offset_size = uiSize * sizeof(uint32_t);
+        }
+
+        snprintf(sHex, uiHexLen, "0x%08x", offset_size);
+
+        sHex[uiHexLen - 1] = '\0';
+        oSs << sHex << ", ";
+    }
+    
+    for (uint32_t i = 0; i < uiSize; i++)
+    {
+        if ((i + stub) % 8 == 0)
+        {
+            oSs << std::endl << "    ";
+        }
+
+        snprintf(sHex, uiHexLen, "0x%08x", pBuffer[i]);
+        sHex[uiHexLen - 1] = '\0';
+        oSs << sHex;
+
+        if (i < (uiSize - 1))
+        {
+            oSs << ", ";
+        }
+    }
+
+    oSs << std::endl << "};" << std::endl;
+
+    oSs << "#else" << std::endl
+        << sSizeName.c_str() << " = 216;" << std::endl
+        << "extern const unsigned int " << sVarName.c_str() << "[] = {" << std::endl
+        << "    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000," << std::endl
+        << "};" << std::endl
+        << "#endif" << std::endl;
+
+    oOutStream << oSs.rdbuf();
+
+    printf("Source file '%s' generated successfully!\n", sFileName.c_str());
+
+    iStatus = 0;
+
+finish:
+    if (oOutStream.is_open())
+    {
+        oOutStream.close();
+    }
+
+    return iStatus;
+}
+
+//-----------------------------------------------------------------------------
 // Writes the Source file
 //-----------------------------------------------------------------------------
 int32_t writeSourceFile(
@@ -253,7 +355,9 @@ finish:
 int32_t createSourceFile(
     const std::string &sInputFile,
     const std::string &sOutputDir,
-    const std::string &sVar)
+    const std::string &sVar,
+    const uint32_t &index,
+    const uint32_t &total)
 {
     struct stat     StatResult;
     int32_t         iStatus = -1;
@@ -325,7 +429,13 @@ int32_t createSourceFile(
 
     {
         std::transform(sVarName.begin(), sVarName.end(), sVarName.begin(), ::toupper);
-        iStatus = writeSourceFile(pBuffer, uiIntSize, sOutputFile, sVarName);
+        
+        if(index == -1)
+        {
+            iStatus = writeSourceFile(pBuffer, uiIntSize, sOutputFile, sVarName);
+        }else{
+            iStatus = writePartialSourceFile(pBuffer, uiIntSize, sOutputFile, sVarName, index, total);
+        }
     }
 
 finish:
@@ -445,10 +555,15 @@ void printUsage(const std::string &sProgram)
               << " (" << PARAM_I << " InPath)"
               << " [" << PARAM_O << " OutPath]"
               << " [" << PARAM_V << " VarName]"
+              << " [" << PARAM_INDEX << " Kernel Index]"
+              << " [" << PARAM_TOTAL << " Kernel Total]"
               << std::endl
               << "    " << PARAM_I << " Path to Kernel binary input file (required)"             << std::endl
               << "    " << PARAM_O << " Path to Kernel binary output directory (optional)"       << std::endl
-              << "    " << PARAM_V << " Variable Name on the generated source file (optional)"   << std::endl;
+              << "    " << PARAM_V << " Variable Name on the generated source file (optional)"   << std::endl
+              << "    " << PARAM_INDEX << " Variab kernel Index  (optional)"                     << std::endl
+              << "    " << PARAM_TOTAL << " Variable kernel total count (optional)"              << std::endl;
+
 }
 
 //-----------------------------------------------------------------------------
@@ -460,7 +575,9 @@ int32_t parseInput(
     const std::string   &sProgram,
     std::string         &sInput,
     std::string         &sOutput,
-    std::string         &sVarName)
+    std::string         &sVarName,
+    uint32_t            &index,
+    uint32_t            &total)
 {
     int32_t iStatus = -1;
 
@@ -483,6 +600,14 @@ int32_t parseInput(
         else if (0 == strcmp(PARAM_V, argv[i]))
         {
             sVarName = argv[i+1];
+        }
+        else if (0 == strcmp(PARAM_INDEX, argv[i]))
+        {
+            index = atoi(argv[i+1]);
+        }
+        else if (0 == strcmp(PARAM_TOTAL, argv[i]))
+        {
+            total = atoi(argv[i+1]);
         }
         else
         {
@@ -533,15 +658,18 @@ int32_t main(int argc, char *argv[])
     std::string sInputPath;
     std::string sOutputDir;
     std::string sVarName;
+    uint32_t index=-1;
+    uint32_t total=-1;
 
-    iStatus = parseInput(argc, argv, sProgram, sInputPath, sOutputDir, sVarName);
+    iStatus = parseInput(argc, argv, sProgram, sInputPath, sOutputDir, sVarName, index, total);
     if (iStatus != 0)
     {
         goto finish;
     }
 
     iStatus = createHeaderFile(sInputPath, sOutputDir, sVarName);
-    iStatus = createSourceFile(sInputPath, sOutputDir, sVarName);
+    
+    iStatus = createSourceFile(sInputPath, sOutputDir, sVarName, index, total);
 
 finish:
     return iStatus;
